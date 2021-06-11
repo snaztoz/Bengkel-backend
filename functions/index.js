@@ -1,8 +1,8 @@
-const admin = require('firebase-admin');
-const functions = require("firebase-functions");
+const admin = require('firebase-admin')
+const functions = require('firebase-functions')
 const geofire = require('geofire-common')
 
-admin.initializeApp();
+admin.initializeApp()
 
 exports.getNearbyBengkel = functions.https
     .onRequest(async (req, res) => {
@@ -29,11 +29,11 @@ exports.getNearbyBengkel = functions.https
         }
 
         const snapshots = await Promise.all(promises)
-        const matchingDocs = [];
+        const matchingDocs = []
 
         for (const snap of snapshots) {
             for (const doc of snap.docs) {
-                const location = doc.get('lokasi');
+                const location = doc.get('lokasi')
 
                 // Filter lokasi yang benar-benar di dalam radius distanceInM
                 //
@@ -42,10 +42,10 @@ exports.getNearbyBengkel = functions.https
                 const distanceInKm = geofire.distanceBetween(
                     [location.latitude, location.longitude],
                     position
-                );
-                const distanceInM = distanceInKm * 1000;
+                )
+                const distanceInM = distanceInKm * 1000
                 if (distanceInM <= radiusInM) {
-                    matchingDocs.push(doc);
+                    matchingDocs.push(doc)
                 }
             }
         }
