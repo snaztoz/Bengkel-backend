@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
 const functions = require("firebase-functions");
+const geofire = require('geofire-common')
 
 admin.initializeApp();
 
@@ -29,4 +30,15 @@ exports.getNearbyBengkel = functions.https
             .sort((bengkel1, bengkel2) => bengkel1.jarak - bengkel2.jarak)
 
         res.status(200).json({result: bengkelList})
+    })
+
+exports.addBengkelGeohash = functions.firestore.document('/bengkel/{bengkelId}')
+    .onCreate(snap => {
+        const data = snap.data()
+
+        const lat = data.lokasi.latitude
+        const long = data.lokasi.longitude
+        const geohash = geofire.geohashForLocation([Number(lat), Number(long)])
+
+        return snap.ref.set({geohash}, {merge: true})
     })
