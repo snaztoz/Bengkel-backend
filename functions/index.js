@@ -11,25 +11,63 @@ exports.getNearbyBengkel = functions.https
             res.status(400).json({error: 'required URL query: lat & long'})
         }
 
-        const collection = await admin.firestore()
-            .collection('bengkel')
-            .where('lokasi', '!=', null) // filter yang tidak memiliki field lokasi
-            .get()
+        const position = [Number(lat), Number(long)]
+        const radiusInM = 10000
 
-        const bengkelList = collection.docs
-            .map(doc => {
-                data = doc.data()
-                data.id = doc.id
-                data.jarak = Math.abs(Math.sqrt(
-                    Math.pow(data.lokasi.latitude - lat, 2)
-                    + Math.pow(data.lokasi.longitude - long, 2)
-                ))
+        const bounds = geofire.geohashQueryBounds(position, radiusInM)
+        const promises = []
 
-                return data
+        for (const b of bounds) {
+            const q = admin.firestore()
+                .collection('bengkel')
+                .where('geohash', '!=', null)
+                .orderBy('geohash')
+                .startAt(b[0])
+                .endAt(b[1])
+
+            promises.push(q.get())
+        }
+
+        Promise.all(promises)
+            .then(snapshots => {
+                const matchingDocs = [];
+
+                for (const snap of snapshots) {
+                    for (const doc of snap.docs) {
+                        const location = doc.get('lokasi');
+
+                        // Filter lokasi yang benar-benar di dalam radius distanceInM
+                        //
+                        // Hal ini diperlukan karena adanya kasus dimana terdapat error
+                        // relatif dari kalkulasi geohash
+                        const distanceInKm = geofire.distanceBetween(
+                            [location.latitude, location.longitude],
+                            position
+                        );
+                        const distanceInM = distanceInKm * 1000;
+                        if (distanceInM <= radiusInM) {
+                            matchingDocs.push(doc);
+                        }
+                    }
+                }
+
+                return matchingDocs
             })
-            .sort((bengkel1, bengkel2) => bengkel1.jarak - bengkel2.jarak)
+            .then(docs => {
+                const result = docs
+                    .map(doc => {
+                        data = doc.data()
+                        data.id = doc.id
+                        data.distance = geofire.distanceBetween(
+                            [data.lokasi.latitude, data.lokasi.longitude],
+                            position
+                        )
+                        return data
+                    })
+                    .sort((bengkel1, bengkel2) => bengkel1.distance - bengkel2.distance)
 
-        res.status(200).json({result: bengkelList})
+                res.status(200).json({result: result})
+            })
     })
 
 exports.addBengkelGeohash = functions.firestore.document('/bengkel/{bengkelId}')
