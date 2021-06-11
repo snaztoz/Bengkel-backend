@@ -28,46 +28,41 @@ exports.getNearbyBengkel = functions.https
             promises.push(q.get())
         }
 
-        Promise.all(promises)
-            .then(snapshots => {
-                const matchingDocs = [];
+        const snapshots = await Promise.all(promises)
+        const matchingDocs = [];
 
-                for (const snap of snapshots) {
-                    for (const doc of snap.docs) {
-                        const location = doc.get('lokasi');
+        for (const snap of snapshots) {
+            for (const doc of snap.docs) {
+                const location = doc.get('lokasi');
 
-                        // Filter lokasi yang benar-benar di dalam radius distanceInM
-                        //
-                        // Hal ini diperlukan karena adanya kasus dimana terdapat error
-                        // relatif dari kalkulasi geohash
-                        const distanceInKm = geofire.distanceBetween(
-                            [location.latitude, location.longitude],
-                            position
-                        );
-                        const distanceInM = distanceInKm * 1000;
-                        if (distanceInM <= radiusInM) {
-                            matchingDocs.push(doc);
-                        }
-                    }
+                // Filter lokasi yang benar-benar di dalam radius distanceInM
+                //
+                // Hal ini diperlukan karena adanya kasus dimana terdapat error
+                // relatif dari kalkulasi geohash
+                const distanceInKm = geofire.distanceBetween(
+                    [location.latitude, location.longitude],
+                    position
+                );
+                const distanceInM = distanceInKm * 1000;
+                if (distanceInM <= radiusInM) {
+                    matchingDocs.push(doc);
                 }
+            }
+        }
 
-                return matchingDocs
+        const result = matchingDocs
+            .map(doc => {
+                data = doc.data()
+                data.id = doc.id
+                data.distance = geofire.distanceBetween(
+                    [data.lokasi.latitude, data.lokasi.longitude],
+                    position
+                )
+                return data
             })
-            .then(docs => {
-                const result = docs
-                    .map(doc => {
-                        data = doc.data()
-                        data.id = doc.id
-                        data.distance = geofire.distanceBetween(
-                            [data.lokasi.latitude, data.lokasi.longitude],
-                            position
-                        )
-                        return data
-                    })
-                    .sort((bengkel1, bengkel2) => bengkel1.distance - bengkel2.distance)
+            .sort((bengkel1, bengkel2) => bengkel1.distance - bengkel2.distance)
 
-                res.status(200).json({result: result})
-            })
+        res.status(200).json({result})
     })
 
 exports.addBengkelGeohash = functions.firestore.document('/bengkel/{bengkelId}')
