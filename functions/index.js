@@ -46,6 +46,8 @@ exports.getNearbyBengkel = functions.https
             res.status(400).json({error: 'required URL query: lat & long'})
         }
 
+        console.log(lat + " dan " + long)
+
         const position = [Number(lat), Number(long)]
         const radiusInM = 10000
 
